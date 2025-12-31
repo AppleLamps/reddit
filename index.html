@@ -468,7 +468,15 @@
                     body: JSON.stringify({ url })
                 });
 
-                const result = await response.json();
+                const responseText = await response.text();
+                let result;
+
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    // API returned non-JSON response
+                    throw new Error('Server returned an invalid response. The post may not be accessible.');
+                }
 
                 if (!response.ok) {
                     throw new Error(result.error || 'Failed to scrape Reddit thread');
