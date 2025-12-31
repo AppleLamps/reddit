@@ -34,38 +34,56 @@ export default async function handler(req, res) {
             if (!urlObj.pathname.endsWith('.json')) {
                 urlObj.pathname += '.json';
             }
+            // Use old.reddit.com as it's more permissive with API requests
+            urlObj.hostname = 'old.reddit.com';
             jsonUrl = urlObj.toString();
         } catch (e) {
             // Fallback for simple string manipulation if URL parsing fails
             jsonUrl = url.split('?')[0];
+            jsonUrl = jsonUrl.replace('www.reddit.com', 'old.reddit.com');
             if (!jsonUrl.endsWith('.json')) {
                 jsonUrl = jsonUrl.replace(/\/$/, '') + '.json';
             }
         }
 
-        // Fetch Reddit data
-        const response = await fetch(jsonUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json',
-                'Accept-Language': 'en-US,en;q=0.9',
+        // Fetch Reddit data with retry logic
+        let response;
+        let responseText;
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+            response = await fetch(jsonUrl, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (compatible; RedditScraper/1.0; +https://github.com)',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Cache-Control': 'no-cache',
+                }
+            });
+
+            responseText = await response.text();
+
+            // If we got valid JSON, break out of retry loop
+            if (responseText && !responseText.trim().startsWith('<')) {
+                break;
             }
-        });
+
+            // Wait a bit before retry
+            if (attempt < 1) {
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
 
         if (!response.ok) {
             throw new Error(`Reddit returned ${response.status}: ${response.statusText}`);
         }
-
-        // Get the response as text first to check for empty or HTML responses
-        const responseText = await response.text();
 
         if (!responseText || responseText.trim() === '') {
             throw new Error('Reddit returned an empty response. Please try again.');
         }
 
         // Check if we got HTML instead of JSON (usually an error page)
-        if (responseText.trim().startsWith('<') || responseText.trim().startsWith('<!')) {
-            throw new Error('Reddit returned an error page. The thread may not exist or is private.');
+        if (responseText.trim().startsWith('<') || responseText.trim().startsWith('<!') || responseText.includes('<!DOCTYPE')) {
+            throw new Error('Reddit blocked the request. Try again in a few seconds.');
         }
 
         let rawData;
