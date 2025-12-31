@@ -86,11 +86,25 @@ export default async function handler(req, res) {
             throw new Error('Reddit blocked the request. Try again in a few seconds.');
         }
 
+        // Check if response looks like valid JSON (Reddit API returns arrays or objects)
+        const trimmedResponse = responseText.trim();
+        if (!trimmedResponse.startsWith('[') && !trimmedResponse.startsWith('{')) {
+            // This is likely a plain text error message from Reddit
+            if (trimmedResponse.toLowerCase().includes('page not found') ||
+                trimmedResponse.toLowerCase().includes('the page') ||
+                trimmedResponse.toLowerCase().includes('not available')) {
+                throw new Error('This Reddit post could not be found. It may have been deleted or made private.');
+            }
+            throw new Error('Reddit returned an unexpected response. The post may not be accessible.');
+        }
+
         let rawData;
         try {
             rawData = JSON.parse(responseText);
         } catch (parseError) {
-            throw new Error('Failed to parse Reddit response. Please check the URL and try again.');
+            // Include part of the response in error for debugging
+            const preview = responseText.substring(0, 100);
+            throw new Error(`Failed to parse Reddit response: ${preview}...`);
         }
 
         // Verify we have valid Reddit data structure
