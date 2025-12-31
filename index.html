@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Thread Scraper // TERMINAL</title>
+    <style>
+        :root {
+            --bg-color: #0a0a0a;
+            --terminal-green: #00ff41;
+            --terminal-yellow: #f3f99d;
+            --terminal-dim: #008F11;
+            --terminal-border: #333;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: var(--bg-color);
+            color: var(--terminal-green);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* CRT Scanline effect */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(to bottom,
+                    rgba(18, 16, 16, 0) 50%,
+                    rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 4px;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: #000;
+            border: 2px solid var(--terminal-green);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.15);
+            padding: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            color: var(--terminal-yellow);
+            margin-bottom: 10px;
+            font-size: 32px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(243, 249, 157, 0.5);
+        }
+
+        h1::before {
+            content: "> ";
+            color: var(--terminal-green);
+        }
+
+        .subtitle {
+            color: var(--terminal-dim);
+            margin-bottom: 40px;
+            font-size: 14px;
+            border-bottom: 1px dashed var(--terminal-dim);
+            padding-bottom: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--terminal-green);
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 1px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 16px;
+            background: #000;
+            border: 1px solid var(--terminal-dim);
+            color: var(--terminal-yellow);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--terminal-green);
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 16px 24px;
+            border: 1px solid var(--terminal-green);
+            background: transparent;
+            color: var(--terminal-green);
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 16px;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 1px;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--terminal-green);
+            color: #000;
+            box-shadow: 0 0 20px var(--terminal-green);
+        }
+
+        button:disabled {
+            border-color: var(--terminal-dim);
+            color: var(--terminal-dim);
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            border-color: var(--terminal-yellow);
+            color: var(--terminal-yellow);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: var(--terminal-yellow);
+            color: #000;
+            box-shadow: 0 0 20px var(--terminal-yellow);
+        }
+
+        .result-container {
+            display: none;
+            margin-top: 30px;
+            border-top: 2px solid var(--terminal-dim);
+            padding-top: 30px;
+        }
+
+        .result-container.show {
+            display: block;
+            animation: flicker 0.5s;
+        }
+
+        @keyframes flicker {
+            0% {
+                opacity: 0;
+            }
+
+            10% {
+                opacity: 1;
+            }
+
+            20% {
+                opacity: 0;
+            }
+
+            30% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .result-header h2 {
+            font-size: 20px;
+            color: var(--terminal-yellow);
+            text-transform: uppercase;
+        }
+
+        .stats {
+            display: flex;
+            gap: 2px;
+            /* Gap for borders */
+            margin-bottom: 20px;
+            background: var(--terminal-dim);
+            border: 1px solid var(--terminal-dim);
+        }
+
+        .stat {
+            flex: 1;
+            text-align: center;
+            padding: 20px;
+            background: #000;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--terminal-green);
+            text-shadow: 0 0 5px var(--terminal-green);
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--terminal-dim);
+            text-transform: uppercase;
+            margin-top: 5px;
+            letter-spacing: 1px;
+        }
+
+        .json-output {
+            background: #050505;
+            color: var(--terminal-green);
+            padding: 20px;
+            border: 1px solid var(--terminal-dim);
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #000;
+            border-left: 1px solid var(--terminal-dim);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--terminal-dim);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--terminal-green);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: var(--terminal-yellow);
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 12px;
+            height: 24px;
+            background: var(--terminal-yellow);
+            animation: blink 1s infinite;
+            margin-bottom: 10px;
+            box-shadow: 0 0 10px var(--terminal-yellow);
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+
+        .error {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid #ff0000;
+            color: #ff0000;
+            padding: 16px;
+            margin-top: 16px;
+            display: none;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .error.show {
+            display: block;
+        }
+
+        .success-message {
+            background: rgba(0, 255, 65, 0.1);
+            border: 1px solid var(--terminal-green);
+            color: var(--terminal-green);
+            padding: 12px 16px;
+            margin-top: 16px;
+            display: none;
+            text-transform: uppercase;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Reddit Scraper v1.0</h1>
+        <p class="subtitle">SYSTEM READY // WAITING FOR INPUT...</p>
+
+        <div class="input-group">
+            <label for="redditUrl">Target URL_</label>
+            <input type="text" id="redditUrl" placeholder="https://www.reddit.com/r/..." value="" autocomplete="off">
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" id="scrapeBtn">
+                [ EXECUTE SCRAPE ]
+            </button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <span>ESTABLISHING CONNECTION...</span>
+        </div>
+
+        <div class="error" id="error"></div>
+        <div class="success-message" id="success"></div>
+
+        <div class="result-container" id="resultContainer">
+            <div class="result-header">
+                <h2>>> DATA_RETRIEVED</h2>
+                <button class="btn-secondary" id="downloadBtn">
+                    [ DOWNLOAD_JSON ]
+                </button>
+            </div>
+
+            <div class="stats" id="stats">
+                <div class="stat">
+                    <div class="stat-value" id="scoreValue">0</div>
+                    <div class="stat-label">NET_SCORE</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="commentsValue">0</div>
+                    <div class="stat-label">TOTAL_COMMENTS</div>
+                </div>
+            </div>
+
+            <div class="json-output" id="jsonOutput"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+
+        const elements = {
+            urlInput: document.getElementById('redditUrl'),
+            scrapeBtn: document.getElementById('scrapeBtn'),
+            downloadBtn: document.getElementById('downloadBtn'),
+            loading: document.getElementById('loading'),
+            error: document.getElementById('error'),
+            success: document.getElementById('success'),
+            resultContainer: document.getElementById('resultContainer'),
+            jsonOutput: document.getElementById('jsonOutput'),
+            scoreValue: document.getElementById('scoreValue'),
+            commentsValue: document.getElementById('commentsValue')
+        };
+
+        function showLoading() {
+            elements.loading.classList.add('show');
+            elements.error.classList.remove('show');
+            elements.success.classList.remove('show');
+            elements.resultContainer.classList.remove('show');
+            elements.scrapeBtn.disabled = true;
+            elements.scrapeBtn.textContent = "[ PROCESSING... ]";
+        }
+
+        function hideLoading() {
+            elements.loading.classList.remove('show');
+            elements.scrapeBtn.disabled = false;
+            elements.scrapeBtn.textContent = "[ EXECUTE SCRAPE ]";
+        }
+
+        function showError(message) {
+            elements.error.textContent = "ERROR: " + message;
+            elements.error.classList.add('show');
+            hideLoading();
+        }
+
+        function showSuccess(message) {
+            elements.success.textContent = "SUCCESS: " + message;
+            elements.success.classList.add('show');
+            setTimeout(() => {
+                elements.success.classList.remove('show');
+            }, 3000);
+        }
+
+        function displayResults(data) {
+            currentData = data;
+
+            // Update stats
+            elements.scoreValue.textContent = data.post.score.toLocaleString();
+            elements.commentsValue.textContent = data.comments.length.toLocaleString();
+
+            // Display JSON
+            elements.jsonOutput.textContent = JSON.stringify(data, null, 2);
+
+            // Show results
+            elements.resultContainer.classList.add('show');
+            hideLoading();
+        }
+
+        async function scrapeReddit() {
+            const url = elements.urlInput.value.trim();
+
+            if (!url) {
+                showError('INPUT_REQUIRED: Please enter a Reddit URL');
+                return;
+            }
+
+            if (!url.includes('reddit.com')) {
+                showError('INVALID_TARGET: Please enter a valid Reddit URL');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/scrape', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Failed to scrape Reddit thread');
+                }
+
+                displayResults(result.data);
+            } catch (error) {
+                showError(error.message || 'CONNECTION_FAILED');
+            }
+        }
+
+        function downloadJSON() {
+            if (!currentData) return;
+
+            const dataStr = JSON.stringify(currentData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+
+            // Generate filename from subreddit and title
+            const subreddit = currentData.post.subreddit || 'reddit';
+            const timestamp = new Date().toISOString().split('T')[0];
+            link.download = `reddit_${subreddit}_${timestamp}.json`;
+
+            link.href = url;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showSuccess('FILE_DOWNLOAD_INITIATED');
+        }
+
+        // Event listeners
+        elements.scrapeBtn.addEventListener('click', scrapeReddit);
+        elements.downloadBtn.addEventListener('click', downloadJSON);
+        elements.urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                scrapeReddit();
+            }
+        });
+    </script>
+</body>
+
+</html>

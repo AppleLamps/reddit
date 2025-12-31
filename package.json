@@ -1,0 +1,16 @@
+{
+    "name": "reddit-scraper",
+    "version": "1.0.0",
+    "description": "A simple Reddit thread scraper web app",
+    "main": "index.html",
+    "scripts": {
+        "dev": "vercel dev"
+    },
+    "keywords": [
+        "reddit",
+        "scraper",
+        "vercel"
+    ],
+    "author": "",
+    "license": "MIT"
+}
